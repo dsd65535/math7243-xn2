@@ -36,6 +36,32 @@ def get_data(y_name: str) -> Tuple[np.ndarray, np.ndarray]:
     return X_data, y_data
 
 
+def filter_singles(
+    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Remove categories with a single member"""
+
+    label_counts = {}
+    for label in y_train:
+        if label in label_counts:
+            label_counts[float(label)] += 1
+        else:
+            label_counts[float(label)] = 1
+
+    train_mult = pd.DataFrame(y_train).apply(
+        lambda x: label_counts.get(float(x.to_numpy()), 0) > 1, axis=1
+    )
+    X_train_mult = X_train[train_mult]
+    y_train_mult = y_train[train_mult]
+    test_mult = pd.DataFrame(y_test).apply(
+        lambda x: label_counts.get(float(x.to_numpy()), 0) > 1, axis=1
+    )
+    X_test_mult = X_test[test_mult]
+    y_test_mult = y_test[test_mult]
+
+    return X_train_mult, y_train_mult, X_test_mult, y_test_mult
+
+
 def do_clf(
     X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
 ) -> None:
@@ -96,13 +122,16 @@ def run_initial_test(y_name: str, test_fraction: float = 1.0 / 7) -> None:
     X_test = X_data[:test_count]
     y_test = y_data[:test_count]
     y_test_dummy = y_data_dummy[:test_count]
+    X_train_mult, y_train_mult, X_test_mult, y_test_mult = filter_singles(
+        X_train, y_train, X_test, y_test
+    )
 
     print(f"Training Samples: {len(y_train)}")
     print(f"Testing Samples: {len(y_test)}")
 
     do_clf(X_train, y_train, X_test, y_test)
     do_lda(X_train, y_train, X_test, y_test)
-    do_qda(X_train, y_train, X_test, y_test)
+    do_qda(X_train_mult, y_train_mult, X_test_mult, y_test_mult)
     do_lr(X_train, y_train_dummy, X_test, y_test_dummy)
 
 
