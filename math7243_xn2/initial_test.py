@@ -83,7 +83,7 @@ def do_lr(
     print(f"R2 Testing Score: {lr.score(X_test, y_test_dummy):.3f}")
 
 
-def run_initial_test(y_name: str = "lineage", test_fraction: float = 1.0 / 7) -> None:
+def run_initial_test(y_name: str, test_fraction: float = 1.0 / 7) -> None:
     """Run an initial test"""
 
     X_data, y_data = get_data(y_name)
@@ -109,7 +109,8 @@ def run_initial_test(y_name: str = "lineage", test_fraction: float = 1.0 / 7) ->
 def main() -> None:
     """Entry Point"""
 
-    run_initial_test()
+    run_initial_test("lineage")
+    run_initial_test("primary_disease")
 
 
 if __name__ == "__main__":
