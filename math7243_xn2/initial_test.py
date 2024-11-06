@@ -87,14 +87,15 @@ def run_initial_test(y_name: str = "lineage", test_fraction: float = 1.0 / 7) ->
     """Run an initial test"""
 
     X_data, y_data = get_data(y_name)
+    y_data_dummy = pd.get_dummies(y_data).to_numpy()
 
     test_count = round(len(y_data) * test_fraction)
     X_train = X_data[test_count:]
     y_train = y_data[test_count:]
+    y_train_dummy = y_data_dummy[test_count:]
     X_test = X_data[:test_count]
     y_test = y_data[:test_count]
-    y_train_dummy = pd.get_dummies(y_train).to_numpy()
-    y_test_dummy = pd.get_dummies(y_test).to_numpy()
+    y_test_dummy = y_data_dummy[:test_count]
 
     print(f"Training Samples: {len(y_train)}")
     print(f"Testing Samples: {len(y_test)}")
