@@ -58,12 +58,14 @@ def do_lr(
     print(f"R2 Testing Score: {lr.score(X_test, y_test_dummy):.3f}")
 
 
-def run_initial_test(y_name: str) -> None:
+def run_initial_test(
+    y_name: str, valid_fraction: float = 0.0, test_fraction: float = 1.0 / 7
+) -> None:
     """Run an initial test"""
 
     X_data, y_data, _ = get_data(y_name)
-    X_train, y_train, y_train_dummy, X_test, y_test, y_test_dummy = process_data(
-        X_data, y_data
+    (X_train, y_train, y_train_dummy), _, (X_test, y_test, y_test_dummy) = process_data(
+        X_data, y_data, valid_fraction, test_fraction
     )
     X_train_mult, y_train_mult, X_test_mult, y_test_mult = filter_singles(
         X_train, y_train, X_test, y_test
