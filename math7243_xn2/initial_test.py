@@ -34,6 +34,27 @@ def get_data(y_name: str) -> tuple[np.ndarray, np.ndarray, list[str]]:
     return X_data, y_data, labels
 
 
+def process_data(
+    X_data: np.ndarray, y_data: np.ndarray, test_fraction: float = 1.0 / 7
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Split data up into training and testing"""
+
+    # Do this first to capture all categories
+    y_data_dummy = pd.get_dummies(y_data).to_numpy()
+
+    test_count = round(len(y_data) * test_fraction)
+
+    X_train = X_data[test_count:]
+    y_train = y_data[test_count:]
+    y_train_dummy = y_data_dummy[test_count:]
+
+    X_test = X_data[:test_count]
+    y_test = y_data[:test_count]
+    y_test_dummy = y_data_dummy[:test_count]
+
+    return X_train, y_train, y_train_dummy, X_test, y_test, y_test_dummy
+
+
 def filter_singles(
     X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -107,20 +128,13 @@ def do_lr(
     print(f"R2 Testing Score: {lr.score(X_test, y_test_dummy):.3f}")
 
 
-def run_initial_test(y_name: str, test_fraction: float = 1.0 / 7) -> None:
-    # pylint:disable=too-many-locals
+def run_initial_test(y_name: str) -> None:
     """Run an initial test"""
 
     X_data, y_data, _ = get_data(y_name)
-    y_data_dummy = pd.get_dummies(y_data).to_numpy()
-
-    test_count = round(len(y_data) * test_fraction)
-    X_train = X_data[test_count:]
-    y_train = y_data[test_count:]
-    y_train_dummy = y_data_dummy[test_count:]
-    X_test = X_data[:test_count]
-    y_test = y_data[:test_count]
-    y_test_dummy = y_data_dummy[:test_count]
+    X_train, y_train, y_train_dummy, X_test, y_test, y_test_dummy = process_data(
+        X_data, y_data
+    )
     X_train_mult, y_train_mult, X_test_mult, y_test_mult = filter_singles(
         X_train, y_train, X_test, y_test
     )
