@@ -22,6 +22,10 @@ pylint = "^3.3.1"
 mypy = "^1.13.0"
 ipython = "^8.29.0"
 
+[[tool.mypy.overrides]]
+module = "sklearn.*"
+ignore_missing_imports = true
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
