@@ -1,5 +1,6 @@
 # pylint:disable=invalid-name,fixme
 """This script fits some basic models to CRISPR_gene_effect vs lineage"""
+from typing import List
 from typing import Tuple
 
 import numpy as np
@@ -10,7 +11,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression
 
 
-def get_data(y_name: str) -> Tuple[np.ndarray, np.ndarray]:
+def get_data(y_name: str) -> Tuple[np.ndarray, np.ndarray, List[str]]:
     """Get X and y data"""
 
     crispr_gene_effect = pd.read_csv("cache/22Q2/CRISPR_gene_effect.csv")
@@ -33,7 +34,7 @@ def get_data(y_name: str) -> Tuple[np.ndarray, np.ndarray]:
     X_data = crispr_gene_effect_nona.select_dtypes(np.number).to_numpy()
     y_data = np.array(indices)
 
-    return X_data, y_data
+    return X_data, y_data, labels
 
 
 def filter_singles(
@@ -110,9 +111,10 @@ def do_lr(
 
 
 def run_initial_test(y_name: str, test_fraction: float = 1.0 / 7) -> None:
+    # pylint:disable=too-many-locals
     """Run an initial test"""
 
-    X_data, y_data = get_data(y_name)
+    X_data, y_data, _ = get_data(y_name)
     y_data_dummy = pd.get_dummies(y_data).to_numpy()
 
     test_count = round(len(y_data) * test_fraction)
