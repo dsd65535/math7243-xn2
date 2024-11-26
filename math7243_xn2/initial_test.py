@@ -1,8 +1,5 @@
 # pylint:disable=invalid-name,fixme
 """This script fits some basic models to CRISPR_gene_effect vs lineage"""
-from typing import List
-from typing import Tuple
-
 import numpy as np
 import pandas as pd
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -11,7 +8,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression
 
 
-def get_data(y_name: str) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+def get_data(y_name: str) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Get X and y data"""
 
     crispr_gene_effect = pd.read_csv("cache/22Q2/CRISPR_gene_effect.csv")
@@ -39,10 +36,10 @@ def get_data(y_name: str) -> Tuple[np.ndarray, np.ndarray, List[str]]:
 
 def filter_singles(
     X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Remove categories with a single member"""
 
-    label_counts = {}
+    label_counts: dict[float, int] = {}
     for label in y_train:
         if label in label_counts:
             label_counts[float(label)] += 1
