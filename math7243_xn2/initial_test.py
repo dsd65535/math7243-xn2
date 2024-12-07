@@ -63,7 +63,7 @@ def run_initial_test(
 ) -> None:
     """Run an initial test"""
 
-    X_data, y_data, _ = get_data(y_name)
+    X_data, y_data, _, _ = get_data(y_name)
     (X_train, y_train, y_train_dummy), _, (X_test, y_test, y_test_dummy) = process_data(
         X_data, y_data, valid_fraction, test_fraction
     )

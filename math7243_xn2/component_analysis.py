@@ -20,7 +20,7 @@ def run_l1_test(
 ) -> None:
     """Run an L1 test"""
 
-    X_data, y_data, _ = get_data(y_name)
+    X_data, y_data, _, _ = get_data(y_name)
     (X_train, y_train, _), _, (X_test, y_test, _) = process_data(
         X_data, y_data, valid_fraction, test_fraction
     )
@@ -40,7 +40,7 @@ def run_pca_test(
     # pylint:disable=too-many-locals
     """Run a PCA test"""
 
-    X_data, y_data, _ = get_data(y_name)
+    X_data, y_data, _, _ = get_data(y_name)
 
     pca = PCA(n_components=pca_components)
     pca.fit(X_data)
