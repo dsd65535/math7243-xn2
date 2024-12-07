@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 
 
-def get_data(y_name: str) -> tuple[np.ndarray, np.ndarray, list[str]]:
+def get_data(
+    y_name: str = "primary_disease",
+) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
     """Get X and y data"""
 
     crispr_gene_effect = pd.read_csv("cache/22Q2/CRISPR_gene_effect.csv")
@@ -24,10 +26,11 @@ def get_data(y_name: str) -> tuple[np.ndarray, np.ndarray, list[str]]:
             labels.append(lineage)
         indices.append(labels.index(lineage))
 
-    X_data = crispr_gene_effect_nona.select_dtypes(np.number).to_numpy()
+    crispr_gene_effect_nona = crispr_gene_effect_nona.select_dtypes(np.number)
+    X_data = crispr_gene_effect_nona.to_numpy()
     y_data = np.array(indices)
 
-    return X_data, y_data, labels
+    return X_data, y_data, labels, crispr_gene_effect_nona.columns.tolist()
 
 
 def process_data(
