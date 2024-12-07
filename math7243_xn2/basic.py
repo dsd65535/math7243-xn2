@@ -43,26 +43,28 @@ def process_data(
     # pylint:disable=too-many-locals
     """Split data up into training, validation and testing"""
 
+    valid_and_test_fraction = valid_fraction + test_fraction
+
     if valid_fraction < 0:
         raise ValueError("Validation Fraction can't be less than 0")
     if test_fraction < 0:
         raise ValueError("Testing Fraction can't be less than 0")
-    if valid_fraction + test_fraction > 1:
+    if valid_and_test_fraction > 1:
         raise ValueError("Validation and Testing Fraction can't add to more than 1")
 
     # Do this first to capture all categories
     y_data_dummy = pd.get_dummies(y_data).to_numpy()
 
     test_count = round(len(y_data) * test_fraction)
-    valid_count = round(len(y_data) * valid_fraction)
+    valid_and_test_count = round(len(y_data) * valid_and_test_fraction)
 
-    X_train = X_data[test_count:valid_count]
-    y_train = y_data[test_count:valid_count]
-    y_train_dummy = y_data_dummy[test_count:valid_count]
+    X_train = X_data[valid_and_test_count:]
+    y_train = y_data[valid_and_test_count:]
+    y_train_dummy = y_data_dummy[valid_and_test_count:]
 
-    X_valid = X_data[valid_count:]
-    y_valid = y_data[valid_count:]
-    y_valid_dummy = y_data_dummy[valid_count:]
+    X_valid = X_data[test_count:valid_and_test_count]
+    y_valid = y_data[test_count:valid_and_test_count]
+    y_valid_dummy = y_data_dummy[test_count:valid_and_test_count]
 
     X_test = X_data[:test_count]
     y_test = y_data[:test_count]
