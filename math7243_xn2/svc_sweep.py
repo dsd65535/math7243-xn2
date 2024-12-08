@@ -9,11 +9,10 @@ from math7243_xn2.basic import process_data
 def main() -> None:
     """Entry Point"""
 
-    y_name = "primary_disease"
     valid_fraction = 0.0
     test_fraction = 1.0 / 7
 
-    X_data, y_data, _, _ = get_data(y_name)
+    X_data, y_data, _, _ = get_data()
     (X_train, y_train, _), _, (X_test, y_test, _) = process_data(
         X_data, y_data, valid_fraction, test_fraction
     )
