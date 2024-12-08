@@ -84,7 +84,7 @@ class BasicResults:
             "test": confusion_matrix(y_test, model.predict(X_test)),
         }
 
-        logging.info("Running SVR (linear)...")
+        logging.info("Running SVC (linear)...")
         model = SVC(kernel="linear")
         model.fit(X_train, y_train)
         data["svc_linear"] = {
@@ -346,6 +346,18 @@ def main(outdirpath: Path = Path("results"), seed: int = 43) -> None:
         1.0,
         7,
         True,
+    )
+    l1_sweep.print_accuracies()
+    l1_sweep = L1Sweep.load_or_run(
+        outdirpath / "l1_sweep_2.json",
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        1.0,
+        2.5,
+        16,
+        False,
     )
     l1_sweep.print_accuracies()
 
