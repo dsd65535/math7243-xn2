@@ -6,6 +6,7 @@ import random
 from pathlib import Path
 
 import numpy as np
+from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.linear_model import LinearRegression
@@ -124,7 +125,7 @@ class BasicResults:
                 print(f"{test},{dataset},{accuracy}")
 
 
-def main(outfilepath: Path = Path("basic_results.json"), seed: int = 42) -> None:
+def main(seed: int = 42) -> None:
     """CLI Entry Point"""
 
     logging.basicConfig(level=logging.INFO)
@@ -132,13 +133,32 @@ def main(outfilepath: Path = Path("basic_results.json"), seed: int = 42) -> None
     np.random.seed(seed)
 
     X_data, y_data, _, _ = get_data()
+
+    logging.info("Running No PCA...")
     X_train, X_test, y_train, y_test = train_test_split(
         X_data, y_data, test_size=0.2, random_state=41
     )
-
     basic_results = BasicResults.run(X_train, X_test, y_train, y_test)
-    basic_results.dump(outfilepath)
+    basic_results.dump(Path("basic_results.json"))
     basic_results.print_accuracies()
+
+    for n_components_exp in range(14):
+        n_components = int(2**n_components_exp)
+        pca = PCA(n_components=n_components)
+        pca.fit(X_data)
+        X_data_pca = pca.transform(X_data)
+
+        logging.info("Running {n_components}-PCA...")
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_data_pca, y_data, test_size=0.2, random_state=41
+        )
+        try:
+            basic_results = BasicResults.run(X_train, X_test, y_train, y_test)
+        except Exception:  # pylint:disable=broad-exception-caught
+            logging.exception("Failed a run")
+            continue
+        basic_results.dump(Path(f"{n_components}_pca.json"))
+        basic_results.print_accuracies()
 
 
 if __name__ == "__main__":
