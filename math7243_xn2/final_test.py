@@ -260,6 +260,7 @@ def main(
     min_C: float = 0.01,
     max_C: float = 1.00,
     count_C: int = 100,
+    outdirpath: Path = Path("results"),
 ) -> None:
     # pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
     """CLI Entry Point"""
@@ -270,13 +271,15 @@ def main(
 
     X_data, y_data, _, _ = get_data()
 
+    outdirpath.mkdir(parents=True, exist_ok=True)
+
     logging.info("Running No PCA...")
     X_train, X_test, y_train, y_test = train_test_split(
         X_data, y_data, test_size=0.2, random_state=seed
     )
     print((len(set(y_train)), len(set(y_test))))
     basic_results = BasicResults.load_or_run(
-        Path("basic_results.json"), X_train, X_test, y_train, y_test
+        outdirpath / "basic_results.json", X_train, X_test, y_train, y_test
     )
     basic_results.print_accuracies()
 
@@ -297,7 +300,11 @@ def main(
         )
         try:
             basic_results = BasicResults.load_or_run(
-                Path(f"{n_components}_pca.json"), X_train, X_test, y_train, y_test
+                outdirpath / f"{n_components}_pca.json",
+                X_train,
+                X_test,
+                y_train,
+                y_test,
             )
         except Exception:  # pylint:disable=broad-exception-caught
             logging.exception("Failed a PCA run")
@@ -309,7 +316,14 @@ def main(
         X_data, y_data, test_size=0.2, random_state=41
     )
     l1_sweep = L1Sweep.load_or_run(
-        Path("l1_sweep.json"), X_train, X_test, y_train, y_test, min_C, max_C, count_C
+        outdirpath / "l1_sweep.json",
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        min_C,
+        max_C,
+        count_C,
     )
     l1_sweep.print_accuracies()
 
