@@ -5,6 +5,7 @@ import logging
 import random
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -12,6 +13,7 @@ from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.svm import SVC
@@ -129,6 +131,20 @@ class BasicResults:
             for dataset, result in test_results.items():
                 accuracy = result.diagonal().sum() / result.sum()
                 print(f"{test},{dataset},{accuracy}")
+
+    def dump_cms(self, outdirpath: Path, labels: list[str]) -> None:
+        """Dump PNGs of the confusion matrices"""
+
+        for test, test_results in self.data.items():
+            for dataset, result in test_results.items():
+                disp = ConfusionMatrixDisplay(
+                    confusion_matrix=result, display_labels=labels
+                )
+                _, ax = plt.subplots(figsize=(10.0, 10.0))
+                disp.plot(ax=ax, colorbar=False)
+                plt.xticks(rotation=90.0)
+                plt.tight_layout()
+                plt.savefig(str(outdirpath / f"{test}_{dataset}.png"))
 
     @classmethod
     def load_or_run(
@@ -269,7 +285,7 @@ def main(
     random.seed(seed)
     np.random.seed(seed)
 
-    X_data, y_data, _, _ = get_data()
+    X_data, y_data, labels, _ = get_data()
 
     outdirpath.mkdir(parents=True, exist_ok=True)
 
@@ -277,11 +293,11 @@ def main(
     X_train, X_test, y_train, y_test = train_test_split(
         X_data, y_data, test_size=0.2, random_state=seed
     )
-    print((len(set(y_train)), len(set(y_test))))
     basic_results = BasicResults.load_or_run(
         outdirpath / "basic_results.json", X_train, X_test, y_train, y_test
     )
     basic_results.print_accuracies()
+    basic_results.dump_cms(outdirpath, labels)
 
     for n_components in np.logspace(
         min_PCA_e, max_PCA_e, count_PCA, base=base_PCA
