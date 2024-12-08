@@ -180,13 +180,18 @@ class L1Sweep:
         min_C: float,
         max_C: float,
         count_C: int,
+        log_C: bool,
     ) -> "L1Sweep":
         # pylint:disable=too-many-arguments,too-many-positional-arguments
         """Run Tests"""
 
         data = {}
 
-        for C in np.linspace(min_C, max_C, count_C):
+        for C in (
+            np.logspace(min_C, max_C, count_C)
+            if log_C
+            else np.linspace(min_C, max_C, count_C)
+        ):
             logging.info(f"Running C={C}...")
             model = LogisticRegression(solver="saga", penalty="l1", C=C)
             model.fit(X_train, y_train)
@@ -255,30 +260,20 @@ class L1Sweep:
         min_C: float,
         max_C: float,
         count_C: int,
+        log_C: bool,
     ) -> "L1Sweep":
         # pylint:disable=too-many-arguments,too-many-positional-arguments
         """Load from file if it exists, otherwise run"""
 
         if not infilepath.exists():
-            cls.run(X_train, X_test, y_train, y_test, min_C, max_C, count_C).dump(
-                infilepath
-            )
+            cls.run(
+                X_train, X_test, y_train, y_test, min_C, max_C, count_C, log_C
+            ).dump(infilepath)
 
         return cls.load(infilepath)
 
 
-def main(
-    seed: int = 43,
-    min_PCA_e: float = 0.0,
-    max_PCA_e: float = 11.0,
-    count_PCA: int = 12,
-    base_PCA: float = 2.0,
-    min_C: float = 0.01,
-    max_C: float = 1.00,
-    count_C: int = 100,
-    outdirpath: Path = Path("results"),
-) -> None:
-    # pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+def main(outdirpath: Path = Path("results"), seed: int = 43) -> None:
     """CLI Entry Point"""
 
     logging.basicConfig(level=logging.INFO)
@@ -299,9 +294,7 @@ def main(
     basic_results.print_accuracies()
     basic_results.dump_cms(outdirpath, labels)
 
-    for n_components in np.logspace(
-        min_PCA_e, max_PCA_e, count_PCA, base=base_PCA
-    ).astype(int):
+    for n_components in np.logspace(0.0, 11.0, 12, base=2.0).astype(int):
         pca = PCA(n_components=n_components)
         try:
             pca.fit(X_data)
@@ -327,7 +320,7 @@ def main(
             continue
         basic_results.print_accuracies()
 
-    logging.info("Running L1 Sweep...")
+    logging.info("Running L1 Sweeps...")
     X_train, X_test, y_train, y_test = train_test_split(
         X_data, y_data, test_size=0.2, random_state=41
     )
@@ -337,9 +330,22 @@ def main(
         X_test,
         y_train,
         y_test,
-        min_C,
-        max_C,
-        count_C,
+        -3.0,
+        3.0,
+        7,
+        True,
+    )
+    l1_sweep.print_accuracies()
+    l1_sweep = L1Sweep.load_or_run(
+        outdirpath / "l1_sweep_1.json",
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        -1.0,
+        1.0,
+        7,
+        True,
     )
     l1_sweep.print_accuracies()
 
