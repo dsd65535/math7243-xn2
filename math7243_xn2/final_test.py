@@ -1,4 +1,4 @@
-# pylint:disable=invalid-name
+# pylint:disable=invalid-name,logging-fstring-interpolation
 """This script outputs the data used in the Modeling section of the final report"""
 import json
 import logging
@@ -125,6 +125,88 @@ class BasicResults:
                 print(f"{test},{dataset},{accuracy}")
 
 
+class L1Sweep:
+    """Sweep of L1 Regularization"""
+
+    def __init__(self, data: dict[str, tuple[dict[str, np.ndarray], np.ndarray]]):
+        self.data = data
+
+    @classmethod
+    def run(
+        cls,
+        X_train: np.ndarray,
+        X_test: np.ndarray,
+        y_train: np.ndarray,
+        y_test: np.ndarray,
+        *,
+        min_C: float = 0.0,
+        max_C: float = 1.0,
+        count_C: int = 101,
+    ) -> "L1Sweep":
+        # pylint:disable=too-many-arguments,
+        """Run Tests"""
+
+        data = {}
+
+        for C in np.linspace(min_C, max_C, count_C):
+            logging.info(f"Running C={C}...")
+            clf = LogisticRegression(solver="saga", penalty="l1", C=C)
+            clf.fit(X_train, y_train)
+            data[C] = (
+                {
+                    "train": confusion_matrix(y_train, clf.predict(X_train)),
+                    "test": confusion_matrix(y_test, clf.predict(X_test)),
+                },
+                clf.coef_,
+            )
+
+        return cls(data)
+
+    def dump(self, outfilepath: Path) -> None:
+        """Dump to file"""
+
+        with outfilepath.open("w", encoding="UTF-8") as outfile:
+            json.dump(
+                {
+                    test: (
+                        {
+                            dataset: result.tolist()
+                            for dataset, result in test_results.items()
+                        },
+                        coefs.tolist(),
+                    )
+                    for test, (test_results, coefs) in self.data.items()
+                },
+                outfile,
+            )
+
+    @classmethod
+    def load(cls, infilepath: Path) -> "L1Sweep":
+        """Load from file"""
+
+        with infilepath.open("r", encoding="UTF-8") as infile:
+            data = {
+                test: (
+                    {
+                        dataset: np.array(result)
+                        for dataset, result in test_results.items()
+                    },
+                    np.array(coefs),
+                )
+                for test, (test_results, coefs) in json.load(infile).items()
+            }
+
+        return cls(data)
+
+    def print_accuracies(self) -> None:
+        """Print Accuracies from Confusion Matrices"""
+
+        for test, (test_results, _) in self.data.items():
+            for dataset, result in test_results.items():
+                accuracy = result.diagonal().sum() / result.sum()
+                print(f"{test},{dataset},{accuracy}")
+
+
 def main(seed: int = 42) -> None:
     """CLI Entry Point"""
 
@@ -159,6 +241,14 @@ def main(seed: int = 42) -> None:
             continue
         basic_results.dump(Path(f"{n_components}_pca.json"))
         basic_results.print_accuracies()
+
+    logging.info("Running L1 Sweep...")
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_data, y_data, test_size=0.2, random_state=41
+    )
+    l1_sweep = L1Sweep.run(X_train, X_test, y_train, y_test)
+    l1_sweep.dump(Path("l1_sweep.json"))
+    l1_sweep.print_accuracies()
 
 
 if __name__ == "__main__":
