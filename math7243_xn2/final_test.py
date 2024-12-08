@@ -52,21 +52,14 @@ class BasicResults:
         print(f"R2 Training Score: {model.score(X_train, y_train_dummy):.3f}")
         print(f"R2 Testing Score: {model.score(X_test, y_test_dummy):.3f}")
 
-        logging.info("Running LogisticRegression (lbfgs)...")
-        model = LogisticRegression(solver="lbfgs")
-        model.fit(X_train, y_train)
-        data["logistic_lbfgs"] = {
-            "train": confusion_matrix(y_train, model.predict(X_train)),
-            "test": confusion_matrix(y_test, model.predict(X_test)),
-        }
-
-        logging.info("Running LogisticRegression (saga)...")
-        model = LogisticRegression(solver="saga")
-        model.fit(X_train, y_train)
-        data["logistic_saga"] = {
-            "train": confusion_matrix(y_train, model.predict(X_train)),
-            "test": confusion_matrix(y_test, model.predict(X_test)),
-        }
+        for solver in ["lbfgs", "liblinear", "saga"]:
+            logging.info(f"Running LogisticRegression ({solver})...")
+            model = LogisticRegression(solver=solver)
+            model.fit(X_train, y_train)
+            data[f"logistic_{solver}"] = {
+                "train": confusion_matrix(y_train, model.predict(X_train)),
+                "test": confusion_matrix(y_test, model.predict(X_test)),
+            }
 
         logging.info("Running LinearDiscriminantAnalysis...")
         model = LinearDiscriminantAnalysis(store_covariance=True)
@@ -84,13 +77,14 @@ class BasicResults:
             "test": confusion_matrix(y_test, model.predict(X_test)),
         }
 
-        logging.info("Running SVC (linear)...")
-        model = SVC(kernel="linear")
-        model.fit(X_train, y_train)
-        data["svc_linear"] = {
-            "train": confusion_matrix(y_train, model.predict(X_train)),
-            "test": confusion_matrix(y_test, model.predict(X_test)),
-        }
+        for kernel in ["linear", "poly", "rbf", "sigmoid"]:
+            logging.info(f"Running SVC ({kernel})...")
+            model = SVC(kernel=kernel)
+            model.fit(X_train, y_train)
+            data[f"svc_{kernel}"] = {
+                "train": confusion_matrix(y_train, model.predict(X_train)),
+                "test": confusion_matrix(y_test, model.predict(X_test)),
+            }
 
         return cls(data)
 
