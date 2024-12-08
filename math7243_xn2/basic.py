@@ -11,18 +11,19 @@ def get_data(
 
     crispr_gene_effect = pd.read_csv("cache/22Q2/CRISPR_gene_effect.csv")
     sample_info = pd.read_csv("cache/22Q2/sample_info.csv")
-
-    crispr_gene_effect_nona = crispr_gene_effect.dropna()
-    crispr_gene_effect_meta = pd.merge(
-        crispr_gene_effect_nona, sample_info, on="DepMap_ID", how="inner"
+    crispr_gene_effect.dropna(inplace=True)
+    crispr_gene_effect = crispr_gene_effect.merge(
+        sample_info[["DepMap_ID", y_name]], on="DepMap_ID", how="inner"
     )
+    labels, y_data = np.unique(crispr_gene_effect[y_name], return_inverse=True)
+    crispr_gene_effect = crispr_gene_effect.select_dtypes(include=[np.number])
 
-    labels, y_data = np.unique(crispr_gene_effect_meta[y_name], return_inverse=True)
-
-    crispr_gene_effect_nona = crispr_gene_effect_nona.select_dtypes(include=[np.number])
-    X_data = crispr_gene_effect_nona.to_numpy()
-
-    return X_data, y_data, labels.tolist(), crispr_gene_effect_nona.columns.tolist()
+    return (
+        crispr_gene_effect.to_numpy(),
+        y_data,
+        labels.tolist(),
+        crispr_gene_effect.columns.tolist(),
+    )
 
 
 def process_data(
