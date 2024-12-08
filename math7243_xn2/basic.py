@@ -1,34 +1,43 @@
 # pylint:disable=invalid-name
 """This module provides some common functions"""
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 
-def get_data() -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
+def get_data(
+    ccle: bool = False, cachedirpath: Path = Path("cache")
+) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
     """Get X and y data"""
 
     y_name = "primary_disease"
-    crispr_gene_effect = pd.read_csv("cache/22Q2/CRISPR_gene_effect.csv")
-    sample_info = pd.read_csv("cache/22Q2/sample_info.csv")
-    crispr_gene_effect.dropna(inplace=True)
-    crispr_gene_effect = crispr_gene_effect.merge(
-        sample_info[["DepMap_ID", y_name]], on="DepMap_ID", how="inner"
-    )
-    crispr_gene_effect = crispr_gene_effect[
-        crispr_gene_effect["primary_disease"] != "Unknown"
-    ]
-    crispr_gene_effect = crispr_gene_effect[
-        crispr_gene_effect["primary_disease"] != "Teratoma"
-    ]
-    labels, y_data = np.unique(crispr_gene_effect[y_name], return_inverse=True)
-    crispr_gene_effect = crispr_gene_effect.select_dtypes(include=[np.number])
+    to_remove = ["Unknown", "Teratoma", "Adrenal Cancer", "Embryonal Cancer"]
+    sample_info_csv_filepath = Path("22Q2/sample_info.csv")
+    sample_info_on = "DepMap_ID"
+    if ccle:
+        df_csv_filepath = "22Q2/CCLE_expression.csv"
+        df_on = "Unnamed: 0"
+    else:
+        df_csv_filepath = "22Q2/CRISPR_gene_effect.csv"
+        df_on = "DepMap_ID"
 
-    return (
-        crispr_gene_effect.to_numpy(),
-        y_data,
-        labels.tolist(),
-        crispr_gene_effect.columns.tolist(),
+    df = pd.read_csv(cachedirpath / df_csv_filepath)
+    sample_info = pd.read_csv(cachedirpath / sample_info_csv_filepath)
+
+    df.dropna(inplace=True)
+    df = df.merge(
+        sample_info[[sample_info_on, y_name]],
+        left_on=df_on,
+        right_on=sample_info_on,
+        how="inner",
     )
+    for label in to_remove:
+        df = df[df[y_name] != label]
+    labels, y_data = np.unique(df[y_name], return_inverse=True)
+    df = df.select_dtypes(include=[np.number])
+
+    return df.to_numpy(), y_data, labels.tolist(), df.columns.tolist()
 
 
 def process_data(
