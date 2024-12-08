@@ -13,6 +13,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.svm import SVC
 
 from math7243_xn2.basic import get_data
@@ -34,54 +35,59 @@ class BasicResults:
     ) -> "BasicResults":
         """Run Tests"""
 
+        one_hot_encoder = OneHotEncoder(
+            sparse_output=False,
+            categories=[np.unique(np.concatenate([y_train, y_test]))],
+        )
+        y_train_dummy = one_hot_encoder.fit_transform(y_train.reshape(-1, 1))
+        y_test_dummy = one_hot_encoder.fit_transform(y_test.reshape(-1, 1))
+
         data = {}
 
+        logging.info("Running LinearRegression...")
+        model = LinearRegression()
+        model.fit(X_train, y_train_dummy)
+        print(f"R2 Training Score: {model.score(X_train, y_train_dummy):.3f}")
+        print(f"R2 Testing Score: {model.score(X_test, y_test_dummy):.3f}")
+
         logging.info("Running LogisticRegression (lbfgs)...")
-        clf = LogisticRegression(solver="lbfgs")
-        clf.fit(X_train, y_train)
+        model = LogisticRegression(solver="lbfgs")
+        model.fit(X_train, y_train)
         data["logistic_lbfgs"] = {
-            "train": confusion_matrix(y_train, clf.predict(X_train)),
-            "test": confusion_matrix(y_test, clf.predict(X_test)),
+            "train": confusion_matrix(y_train, model.predict(X_train)),
+            "test": confusion_matrix(y_test, model.predict(X_test)),
         }
 
         logging.info("Running LogisticRegression (saga)...")
-        clf = LogisticRegression(solver="saga")
-        clf.fit(X_train, y_train)
+        model = LogisticRegression(solver="saga")
+        model.fit(X_train, y_train)
         data["logistic_saga"] = {
-            "train": confusion_matrix(y_train, clf.predict(X_train)),
-            "test": confusion_matrix(y_test, clf.predict(X_test)),
+            "train": confusion_matrix(y_train, model.predict(X_train)),
+            "test": confusion_matrix(y_test, model.predict(X_test)),
         }
 
         logging.info("Running LinearDiscriminantAnalysis...")
-        clf = LinearDiscriminantAnalysis(store_covariance=True)
-        clf.fit(X_train, y_train)
+        model = LinearDiscriminantAnalysis(store_covariance=True)
+        model.fit(X_train, y_train)
         data["lda"] = {
-            "train": confusion_matrix(y_train, clf.predict(X_train)),
-            "test": confusion_matrix(y_test, clf.predict(X_test)),
+            "train": confusion_matrix(y_train, model.predict(X_train)),
+            "test": confusion_matrix(y_test, model.predict(X_test)),
         }
 
         logging.info("Running QuadraticDiscriminantAnalysis...")
-        clf = QuadraticDiscriminantAnalysis(store_covariance=True)
-        clf.fit(X_train, y_train)
+        model = QuadraticDiscriminantAnalysis(store_covariance=True)
+        model.fit(X_train, y_train)
         data["qda"] = {
-            "train": confusion_matrix(y_train, clf.predict(X_train)),
-            "test": confusion_matrix(y_test, clf.predict(X_test)),
-        }
-
-        logging.info("Running LinearRegression...")
-        clf = LinearRegression()
-        clf.fit(X_train, y_train)
-        data["linear"] = {
-            "train": confusion_matrix(y_train, clf.predict(X_train)),
-            "test": confusion_matrix(y_test, clf.predict(X_test)),
+            "train": confusion_matrix(y_train, model.predict(X_train)),
+            "test": confusion_matrix(y_test, model.predict(X_test)),
         }
 
         logging.info("Running SVR (linear)...")
-        clf = SVC(kernel="linear")
-        clf.fit(X_train, y_train)
+        model = SVC(kernel="linear")
+        model.fit(X_train, y_train)
         data["svc_linear"] = {
-            "train": confusion_matrix(y_train, clf.predict(X_train)),
-            "test": confusion_matrix(y_test, clf.predict(X_test)),
+            "train": confusion_matrix(y_train, model.predict(X_train)),
+            "test": confusion_matrix(y_test, model.predict(X_test)),
         }
 
         return cls(data)
@@ -150,14 +156,14 @@ class L1Sweep:
 
         for C in np.linspace(min_C, max_C, count_C):
             logging.info(f"Running C={C}...")
-            clf = LogisticRegression(solver="saga", penalty="l1", C=C)
-            clf.fit(X_train, y_train)
+            model = LogisticRegression(solver="saga", penalty="l1", C=C)
+            model.fit(X_train, y_train)
             data[C] = (
                 {
-                    "train": confusion_matrix(y_train, clf.predict(X_train)),
-                    "test": confusion_matrix(y_test, clf.predict(X_test)),
+                    "train": confusion_matrix(y_train, model.predict(X_train)),
+                    "test": confusion_matrix(y_test, model.predict(X_test)),
                 },
-                clf.coef_,
+                model.coef_,
             )
 
         return cls(data)
@@ -207,7 +213,7 @@ class L1Sweep:
                 print(f"{test},{dataset},{accuracy}")
 
 
-def main(seed: int = 42) -> None:
+def main(seed: int = 43) -> None:
     """CLI Entry Point"""
 
     logging.basicConfig(level=logging.INFO)
@@ -218,19 +224,19 @@ def main(seed: int = 42) -> None:
 
     logging.info("Running No PCA...")
     X_train, X_test, y_train, y_test = train_test_split(
-        X_data, y_data, test_size=0.2, random_state=41
+        X_data, y_data, test_size=0.2, random_state=seed
     )
+    print((len(set(y_train)), len(set(y_test))))
     basic_results = BasicResults.run(X_train, X_test, y_train, y_test)
     basic_results.dump(Path("basic_results.json"))
     basic_results.print_accuracies()
 
-    for n_components_exp in range(14):
-        n_components = int(2**n_components_exp)
+    for n_components in np.logspace(0, 14, 15, base=2).astype(int):
         pca = PCA(n_components=n_components)
         pca.fit(X_data)
         X_data_pca = pca.transform(X_data)
 
-        logging.info("Running {n_components}-PCA...")
+        logging.info(f"Running {n_components}-PCA...")
         X_train, X_test, y_train, y_test = train_test_split(
             X_data_pca, y_data, test_size=0.2, random_state=41
         )
