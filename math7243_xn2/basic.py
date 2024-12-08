@@ -4,17 +4,22 @@ import numpy as np
 import pandas as pd
 
 
-def get_data(
-    y_name: str = "primary_disease",
-) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
+def get_data() -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
     """Get X and y data"""
 
+    y_name = "primary_disease"
     crispr_gene_effect = pd.read_csv("cache/22Q2/CRISPR_gene_effect.csv")
     sample_info = pd.read_csv("cache/22Q2/sample_info.csv")
     crispr_gene_effect.dropna(inplace=True)
     crispr_gene_effect = crispr_gene_effect.merge(
         sample_info[["DepMap_ID", y_name]], on="DepMap_ID", how="inner"
     )
+    crispr_gene_effect = crispr_gene_effect[
+        crispr_gene_effect["primary_disease"] != "Unknown"
+    ]
+    crispr_gene_effect = crispr_gene_effect[
+        crispr_gene_effect["primary_disease"] != "Teratoma"
+    ]
     labels, y_data = np.unique(crispr_gene_effect[y_name], return_inverse=True)
     crispr_gene_effect = crispr_gene_effect.select_dtypes(include=[np.number])
 

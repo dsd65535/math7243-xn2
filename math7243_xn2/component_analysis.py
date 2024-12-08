@@ -13,14 +13,13 @@ from .initial_test import do_qda
 
 
 def run_l1_test(
-    y_name: str,
     C: float,
     valid_fraction: float = 0.0,
     test_fraction: float = 1.0 / 7,
 ) -> None:
     """Run an L1 test"""
 
-    X_data, y_data, _, _ = get_data(y_name)
+    X_data, y_data, _, _ = get_data()
     (X_train, y_train, _), _, (X_test, y_test, _) = process_data(
         X_data, y_data, valid_fraction, test_fraction
     )
@@ -32,7 +31,6 @@ def run_l1_test(
 
 
 def run_pca_test(
-    y_name: str,
     pca_components: int,
     valid_fraction: float = 0.0,
     test_fraction: float = 1.0 / 7,
@@ -40,7 +38,7 @@ def run_pca_test(
     # pylint:disable=too-many-locals
     """Run a PCA test"""
 
-    X_data, y_data, _, _ = get_data(y_name)
+    X_data, y_data, _, _ = get_data()
 
     pca = PCA(n_components=pca_components)
     pca.fit(X_data)
@@ -65,12 +63,12 @@ def main() -> None:
     for C_e in range(-3, 4):
         C = 10**C_e
         print(f"C: {C}")
-        run_l1_test("primary_disease", C)
+        run_l1_test(C)
 
     for pca_components_e in range(14):
         pca_components = int(2**pca_components_e)
         print(f"PCA: {pca_components}")
-        run_pca_test("primary_disease", pca_components)
+        run_pca_test(pca_components)
 
 
 if __name__ == "__main__":

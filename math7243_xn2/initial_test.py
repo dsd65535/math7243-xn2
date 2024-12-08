@@ -59,11 +59,11 @@ def do_lr(
 
 
 def run_initial_test(
-    y_name: str, valid_fraction: float = 0.0, test_fraction: float = 1.0 / 7
+    valid_fraction: float = 0.0, test_fraction: float = 1.0 / 7
 ) -> None:
     """Run an initial test"""
 
-    X_data, y_data, _, _ = get_data(y_name)
+    X_data, y_data, _, _ = get_data()
     (X_train, y_train, y_train_dummy), _, (X_test, y_test, y_test_dummy) = process_data(
         X_data, y_data, valid_fraction, test_fraction
     )
@@ -83,8 +83,7 @@ def run_initial_test(
 def main() -> None:
     """Entry Point"""
 
-    run_initial_test("lineage")
-    run_initial_test("primary_disease")
+    run_initial_test()
 
 
 if __name__ == "__main__":
