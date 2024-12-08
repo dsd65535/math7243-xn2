@@ -273,6 +273,119 @@ class L1Sweep:
         return cls.load(infilepath)
 
 
+class OneVsRest:
+    """One-Versus-Rest Sweep"""
+
+    def __init__(self, data: list[dict[str, np.ndarray]]):
+        self.data = data
+
+    @classmethod
+    def run(
+        cls,
+        X_train: np.ndarray,
+        X_test: np.ndarray,
+        y_train: np.ndarray,
+        y_test: np.ndarray,
+        labels: list[str],
+    ) -> "OneVsRest":
+        # pylint:disable=too-many-arguments,too-many-positional-arguments
+        """Run Tests"""
+
+        data = []
+
+        for idx, label in enumerate(labels):
+            logging.info(f"Running {label}...")
+            model = SVC(kernel="linear")
+            model.fit(X_train, y_train == idx)
+            data.append(
+                {
+                    "train": confusion_matrix(y_train == idx, model.predict(X_train)),
+                    "test": confusion_matrix(y_test == idx, model.predict(X_test)),
+                }
+            )
+
+        return cls(data)
+
+    def dump(self, outfilepath: Path) -> None:
+        """Dump to file"""
+
+        with outfilepath.open("w", encoding="UTF-8") as outfile:
+            json.dump(
+                [
+                    {
+                        dataset: result.tolist()
+                        for dataset, result in test_results.items()
+                    }
+                    for test_results in self.data
+                ],
+                outfile,
+            )
+
+    @classmethod
+    def load(cls, infilepath: Path) -> "OneVsRest":
+        """Load from file"""
+
+        with infilepath.open("r", encoding="UTF-8") as infile:
+            data = [
+                {dataset: np.array(result) for dataset, result in test_results.items()}
+                for test_results in json.load(infile)
+            ]
+
+        return cls(data)
+
+    def print_accuracies(self, labels: list[str]) -> None:
+        """Print Accuracies from Confusion Matrices"""
+
+        for label, test_results in zip(labels, self.data):
+            for dataset, result in test_results.items():
+                accuracy = result.diagonal().sum() / result.sum()
+                print(f"{label},{dataset},{accuracy}")
+
+    def dump_cms(self, outdirpath: Path, labels: list[str], dataset: str) -> None:
+        """Dump PNG of the confusion matrices"""
+
+        rows = round(len(labels) ** 0.5)
+        cols = (len(labels) - 1) // rows + 1
+        _, axes = plt.subplots(rows, cols, figsize=(2.0 * cols, 2.0 * rows))
+        for label, test_results, ax in zip(labels, self.data, axes.flatten()):
+            result = test_results[dataset]
+            ax.set_title(label, fontsize=10)
+            try:
+                disp = ConfusionMatrixDisplay(
+                    confusion_matrix=result, display_labels=["Neg.", "Pos."]
+                )
+                disp.plot(ax=ax, colorbar=False)
+            except Exception:  # pylint:disable=broad-exception-caught
+                ax.axis("off")
+                continue
+
+            ax.set_aspect("auto")
+            ax.tick_params(axis="x", labelrotation=45, labelsize=8)
+            ax.tick_params(axis="y", labelsize=8)
+
+        plt.subplots_adjust(wspace=0.3, hspace=0.5)
+        plt.tight_layout()
+        plt.savefig(str(outdirpath / f"ovr_{dataset}.png"))
+
+    @classmethod
+    def load_or_run(
+        cls,
+        infilepath: Path,
+        X_train: np.ndarray,
+        X_test: np.ndarray,
+        y_train: np.ndarray,
+        y_test: np.ndarray,
+        labels: list[str],
+    ) -> "OneVsRest":
+        # pylint:disable=too-many-arguments,too-many-positional-arguments
+        """Load from file if it exists, otherwise run"""
+
+        if not infilepath.exists():
+            cls.run(X_train, X_test, y_train, y_test, labels).dump(infilepath)
+
+        return cls.load(infilepath)
+
+
 def main(outdirpath: Path = Path("results"), seed: int = 43) -> None:
     """CLI Entry Point"""
 
@@ -360,6 +473,17 @@ def main(outdirpath: Path = Path("results"), seed: int = 43) -> None:
         False,
     )
     l1_sweep.print_accuracies()
+
+    logging.info("Running OVR Sweep...")
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_data, y_data, test_size=0.2, random_state=seed
+    )
+    ovr_results = OneVsRest.load_or_run(
+        outdirpath / "one_versus_rest.json", X_train, X_test, y_train, y_test, labels
+    )
+    ovr_results.print_accuracies(labels)
+    ovr_results.dump_cms(outdirpath, labels, "train")
+    ovr_results.dump_cms(outdirpath, labels, "test")
 
 
 if __name__ == "__main__":
