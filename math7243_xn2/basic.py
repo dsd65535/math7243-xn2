@@ -1,4 +1,4 @@
-# pylint:disable=invalid-name,fixme
+# pylint:disable=invalid-name
 """This module provides some common functions"""
 import numpy as np
 import pandas as pd
@@ -17,20 +17,12 @@ def get_data(
         crispr_gene_effect_nona, sample_info, on="DepMap_ID", how="inner"
     )
 
-    labels = []
-    indices = []
-    for _, row in crispr_gene_effect_meta.iterrows():
-        # TODO: don't iterate through rows
-        lineage = row[y_name]
-        if lineage not in labels:
-            labels.append(lineage)
-        indices.append(labels.index(lineage))
+    labels, y_data = np.unique(crispr_gene_effect_meta[y_name], return_inverse=True)
 
-    crispr_gene_effect_nona = crispr_gene_effect_nona.select_dtypes(np.number)
+    crispr_gene_effect_nona = crispr_gene_effect_nona.select_dtypes(include=[np.number])
     X_data = crispr_gene_effect_nona.to_numpy()
-    y_data = np.array(indices)
 
-    return X_data, y_data, labels, crispr_gene_effect_nona.columns.tolist()
+    return X_data, y_data, labels.tolist(), crispr_gene_effect_nona.columns.tolist()
 
 
 def process_data(
