@@ -254,12 +254,12 @@ class L1Sweep:
 def main(
     seed: int = 43,
     min_PCA_e: float = 0.0,
-    max_PCA_e: float = 14.0,
-    count_PCA: int = 15,
+    max_PCA_e: float = 11.0,
+    count_PCA: int = 12,
     base_PCA: float = 2.0,
-    min_C: float = 0.0,
-    max_C: float = 1.0,
-    count_C: int = 101,
+    min_C: float = 0.01,
+    max_C: float = 1.00,
+    count_C: int = 100,
 ) -> None:
     # pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
     """CLI Entry Point"""
