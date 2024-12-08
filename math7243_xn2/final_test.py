@@ -130,6 +130,23 @@ class BasicResults:
                 accuracy = result.diagonal().sum() / result.sum()
                 print(f"{test},{dataset},{accuracy}")
 
+    @classmethod
+    def load_or_run(
+        cls,
+        infilepath: Path,
+        X_train: np.ndarray,
+        X_test: np.ndarray,
+        y_train: np.ndarray,
+        y_test: np.ndarray,
+    ) -> "BasicResults":
+        # pylint:disable=too-many-arguments,too-many-positional-arguments
+        """Load from file if it exists, otherwise run"""
+
+        if not infilepath.exists():
+            cls.run(X_train, X_test, y_train, y_test).dump(infilepath)
+
+        return cls.load(infilepath)
+
 
 class L1Sweep:
     """Sweep of L1 Regularization"""
@@ -144,12 +161,11 @@ class L1Sweep:
         X_test: np.ndarray,
         y_train: np.ndarray,
         y_test: np.ndarray,
-        *,
-        min_C: float = 0.0,
-        max_C: float = 1.0,
-        count_C: int = 101,
+        min_C: float,
+        max_C: float,
+        count_C: int,
     ) -> "L1Sweep":
-        # pylint:disable=too-many-arguments,
+        # pylint:disable=too-many-arguments,too-many-positional-arguments
         """Run Tests"""
 
         data = {}
@@ -212,8 +228,40 @@ class L1Sweep:
                 accuracy = result.diagonal().sum() / result.sum()
                 print(f"{test},{dataset},{accuracy}")
 
+    @classmethod
+    def load_or_run(
+        cls,
+        infilepath: Path,
+        X_train: np.ndarray,
+        X_test: np.ndarray,
+        y_train: np.ndarray,
+        y_test: np.ndarray,
+        min_C: float,
+        max_C: float,
+        count_C: int,
+    ) -> "L1Sweep":
+        # pylint:disable=too-many-arguments,too-many-positional-arguments
+        """Load from file if it exists, otherwise run"""
 
-def main(seed: int = 43) -> None:
+        if not infilepath.exists():
+            cls.run(X_train, X_test, y_train, y_test, min_C, max_C, count_C).dump(
+                infilepath
+            )
+
+        return cls.load(infilepath)
+
+
+def main(
+    seed: int = 43,
+    min_PCA_e: float = 0.0,
+    max_PCA_e: float = 14.0,
+    count_PCA: int = 15,
+    base_PCA: float = 2.0,
+    min_C: float = 0.0,
+    max_C: float = 1.0,
+    count_C: int = 101,
+) -> None:
+    # pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
     """CLI Entry Point"""
 
     logging.basicConfig(level=logging.INFO)
@@ -227,13 +275,20 @@ def main(seed: int = 43) -> None:
         X_data, y_data, test_size=0.2, random_state=seed
     )
     print((len(set(y_train)), len(set(y_test))))
-    basic_results = BasicResults.run(X_train, X_test, y_train, y_test)
-    basic_results.dump(Path("basic_results.json"))
+    basic_results = BasicResults.load_or_run(
+        Path("basic_results.json"), X_train, X_test, y_train, y_test
+    )
     basic_results.print_accuracies()
 
-    for n_components in np.logspace(0, 14, 15, base=2).astype(int):
+    for n_components in np.logspace(
+        min_PCA_e, max_PCA_e, count_PCA, base=base_PCA
+    ).astype(int):
         pca = PCA(n_components=n_components)
-        pca.fit(X_data)
+        try:
+            pca.fit(X_data)
+        except Exception:  # pylint:disable=broad-exception-caught
+            logging.exception("Failed a PCA fit")
+            continue
         X_data_pca = pca.transform(X_data)
 
         logging.info(f"Running {n_components}-PCA...")
@@ -241,19 +296,21 @@ def main(seed: int = 43) -> None:
             X_data_pca, y_data, test_size=0.2, random_state=41
         )
         try:
-            basic_results = BasicResults.run(X_train, X_test, y_train, y_test)
+            basic_results = BasicResults.load_or_run(
+                Path(f"{n_components}_pca.json"), X_train, X_test, y_train, y_test
+            )
         except Exception:  # pylint:disable=broad-exception-caught
-            logging.exception("Failed a run")
+            logging.exception("Failed a PCA run")
             continue
-        basic_results.dump(Path(f"{n_components}_pca.json"))
         basic_results.print_accuracies()
 
     logging.info("Running L1 Sweep...")
     X_train, X_test, y_train, y_test = train_test_split(
         X_data, y_data, test_size=0.2, random_state=41
     )
-    l1_sweep = L1Sweep.run(X_train, X_test, y_train, y_test)
-    l1_sweep.dump(Path("l1_sweep.json"))
+    l1_sweep = L1Sweep.load_or_run(
+        Path("l1_sweep.json"), X_train, X_test, y_train, y_test, min_C, max_C, count_C
+    )
     l1_sweep.print_accuracies()
 
 
