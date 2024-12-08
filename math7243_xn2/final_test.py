@@ -17,102 +17,111 @@ from sklearn.svm import SVC
 from math7243_xn2.basic import get_data
 
 
-def run_basic_tests(
-    X_train: np.ndarray, X_test: np.ndarray, y_train: np.ndarray, y_test: np.ndarray
-) -> dict[str, dict[str, np.ndarray]]:
-    """Run basic classifications"""
+class BasicResults:
+    """Basic Classifications"""
 
-    results = {}
+    def __init__(self, data: dict[str, dict[str, np.ndarray]]):
+        self.data = data
 
-    logging.info("Running LogisticRegression (lbfgs)...")
-    clf = LogisticRegression(solver="lbfgs")
-    clf.fit(X_train, y_train)
-    results["logistic_lbfgs"] = {
-        "train": confusion_matrix(y_train, clf.predict(X_train)),
-        "test": confusion_matrix(y_test, clf.predict(X_test)),
-    }
+    @classmethod
+    def run(
+        cls,
+        X_train: np.ndarray,
+        X_test: np.ndarray,
+        y_train: np.ndarray,
+        y_test: np.ndarray,
+    ) -> "BasicResults":
+        """Run Tests"""
 
-    logging.info("Running LogisticRegression (saga)...")
-    clf = LogisticRegression(solver="saga")
-    clf.fit(X_train, y_train)
-    results["logistic_saga"] = {
-        "train": confusion_matrix(y_train, clf.predict(X_train)),
-        "test": confusion_matrix(y_test, clf.predict(X_test)),
-    }
+        data = {}
 
-    logging.info("Running LinearDiscriminantAnalysis...")
-    clf = LinearDiscriminantAnalysis(store_covariance=True)
-    clf.fit(X_train, y_train)
-    results["lda"] = {
-        "train": confusion_matrix(y_train, clf.predict(X_train)),
-        "test": confusion_matrix(y_test, clf.predict(X_test)),
-    }
-
-    logging.info("Running QuadraticDiscriminantAnalysis...")
-    clf = QuadraticDiscriminantAnalysis(store_covariance=True)
-    clf.fit(X_train, y_train)
-    results["qda"] = {
-        "train": confusion_matrix(y_train, clf.predict(X_train)),
-        "test": confusion_matrix(y_test, clf.predict(X_test)),
-    }
-
-    logging.info("Running LinearRegression...")
-    clf = LinearRegression()
-    clf.fit(X_train, y_train)
-    results["linear"] = {
-        "train": confusion_matrix(y_train, clf.predict(X_train)),
-        "test": confusion_matrix(y_test, clf.predict(X_test)),
-    }
-
-    logging.info("Running SVR (linear)...")
-    clf = SVC(kernel="linear")
-    clf.fit(X_train, y_train)
-    results["svc_linear"] = {
-        "train": confusion_matrix(y_train, clf.predict(X_train)),
-        "test": confusion_matrix(y_test, clf.predict(X_test)),
-    }
-
-    return results
-
-
-def dump_basic_results(
-    basic_results: dict[str, dict[str, np.ndarray]], outfilepath: Path
-) -> None:
-    """Dump results from basic tests to file"""
-
-    with outfilepath.open("w", encoding="UTF-8") as outfile:
-        json.dump(
-            {
-                test: {
-                    dataset: result.tolist() for dataset, result in test_results.items()
-                }
-                for test, test_results in basic_results.items()
-            },
-            outfile,
-        )
-
-
-def load_basic_results(infilepath: Path) -> dict[str, dict[str, np.ndarray]]:
-    """Load results from basic tests from file"""
-
-    with infilepath.open("r", encoding="UTF-8") as infile:
-        basic_results = {
-            test: {
-                dataset: np.array(result) for dataset, result in test_results.items()
-            }
-            for test, test_results in json.load(infile).items()
+        logging.info("Running LogisticRegression (lbfgs)...")
+        clf = LogisticRegression(solver="lbfgs")
+        clf.fit(X_train, y_train)
+        data["logistic_lbfgs"] = {
+            "train": confusion_matrix(y_train, clf.predict(X_train)),
+            "test": confusion_matrix(y_test, clf.predict(X_test)),
         }
 
-    return basic_results
+        logging.info("Running LogisticRegression (saga)...")
+        clf = LogisticRegression(solver="saga")
+        clf.fit(X_train, y_train)
+        data["logistic_saga"] = {
+            "train": confusion_matrix(y_train, clf.predict(X_train)),
+            "test": confusion_matrix(y_test, clf.predict(X_test)),
+        }
 
+        logging.info("Running LinearDiscriminantAnalysis...")
+        clf = LinearDiscriminantAnalysis(store_covariance=True)
+        clf.fit(X_train, y_train)
+        data["lda"] = {
+            "train": confusion_matrix(y_train, clf.predict(X_train)),
+            "test": confusion_matrix(y_test, clf.predict(X_test)),
+        }
 
-def print_accuracies(basic_results: dict[str, dict[str, np.ndarray]]) -> None:
-    """Print Accuracies from Confusion Matrices"""
+        logging.info("Running QuadraticDiscriminantAnalysis...")
+        clf = QuadraticDiscriminantAnalysis(store_covariance=True)
+        clf.fit(X_train, y_train)
+        data["qda"] = {
+            "train": confusion_matrix(y_train, clf.predict(X_train)),
+            "test": confusion_matrix(y_test, clf.predict(X_test)),
+        }
 
-    for test, test_results in basic_results.items():
-        for dataset, result in test_results.items():
-            accuracy = result.diagonal().sum() / result.sum()
-            print(f"{test},{dataset},{accuracy}")
+        logging.info("Running LinearRegression...")
+        clf = LinearRegression()
+        clf.fit(X_train, y_train)
+        data["linear"] = {
+            "train": confusion_matrix(y_train, clf.predict(X_train)),
+            "test": confusion_matrix(y_test, clf.predict(X_test)),
+        }
+
+        logging.info("Running SVR (linear)...")
+        clf = SVC(kernel="linear")
+        clf.fit(X_train, y_train)
+        data["svc_linear"] = {
+            "train": confusion_matrix(y_train, clf.predict(X_train)),
+            "test": confusion_matrix(y_test, clf.predict(X_test)),
+        }
+
+        return cls(data)
+
+    def dump(self, outfilepath: Path) -> None:
+        """Dump to file"""
+
+        with outfilepath.open("w", encoding="UTF-8") as outfile:
+            json.dump(
+                {
+                    test: {
+                        dataset: result.tolist()
+                        for dataset, result in test_results.items()
+                    }
+                    for test, test_results in self.data.items()
+                },
+                outfile,
+            )
+
+    @classmethod
+    def load(cls, infilepath: Path) -> "BasicResults":
+        """Load from file"""
+
+        with infilepath.open("r", encoding="UTF-8") as infile:
+            data = {
+                test: {
+                    dataset: np.array(result)
+                    for dataset, result in test_results.items()
+                }
+                for test, test_results in json.load(infile).items()
+            }
+
+        return cls(data)
+
+    def print_accuracies(self) -> None:
+        """Print Accuracies from Confusion Matrices"""
+
+        for test, test_results in self.data.items():
+            for dataset, result in test_results.items():
+                accuracy = result.diagonal().sum() / result.sum()
+                print(f"{test},{dataset},{accuracy}")
 
 
 def main(outfilepath: Path = Path("basic_results.json"), seed: int = 42) -> None:
@@ -127,9 +136,9 @@ def main(outfilepath: Path = Path("basic_results.json"), seed: int = 42) -> None
         X_data, y_data, test_size=0.2, random_state=41
     )
 
-    basic_results = run_basic_tests(X_train, X_test, y_train, y_test)
-    dump_basic_results(basic_results, outfilepath)
-    print_accuracies(basic_results)
+    basic_results = BasicResults.run(X_train, X_test, y_train, y_test)
+    basic_results.dump(outfilepath)
+    basic_results.print_accuracies()
 
 
 if __name__ == "__main__":
