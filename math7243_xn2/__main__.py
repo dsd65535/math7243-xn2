@@ -530,7 +530,7 @@ class OneVsRest:
 
         rows = round(len(labels) ** 0.5)
         cols = (len(labels) - 1) // rows + 1
-        _, axes = plt.subplots(rows, cols, figsize=(2.0 * cols, 2.0 * rows))
+        _, axes = plt.subplots(rows, cols, figsize=(2.0 * cols, 2.0 * rows), dpi=300)
         for label, results, ax in zip(labels, self.data, axes.flatten()):
             result = results[dataset]
             ax.set_title(label, fontsize=10)
