@@ -385,7 +385,11 @@ class L1Sweep:
         return cls.load(infilepath)
 
 
-def plot_l1_sweep(results: list[L1Sweep]) -> None:
+def plot_l1_sweep(
+    results: list[L1Sweep],
+    basic_results: BasicResults,
+    outfilepath: Path,
+) -> None:
     """Plot the results of the L1 Sweeps"""
 
     combined_data = {}
@@ -411,13 +415,17 @@ def plot_l1_sweep(results: list[L1Sweep]) -> None:
         *zip(*accuracies["train"].items()), "--", label="Training Accuracy", color="C0"
     )
     plt.plot(
-        *zip(*accuracies["test"].items()), "-", label="Testing Accuracy", color="C0"
+        *zip(*accuracies["valid"].items()), "-", label="Validation Accuracy", color="C0"
     )
     plt.plot(
-        [1, 2**10],
-        [0.6325581395348837, 0.6325581395348837],
-        "-.",
-        label="Testing Accuracy (no reg.)",
+        *zip(*accuracies["test"].items()), "-.", label="Testing Accuracy", color="C0"
+    )
+    y_value = _get_accuracy_from_cm(basic_results.data["logistic_saga"]["valid"])
+    plt.semilogx(
+        [min(accuracies.keys()), max(accuracies.keys())],
+        [y_value, y_value],
+        ":",
+        label="Validation Accuracy (no reg.)",
         color="C0",
     )
     ax1.set_xlabel("C")
@@ -430,7 +438,7 @@ def plot_l1_sweep(results: list[L1Sweep]) -> None:
     ax1.legend()
     ax2.legend()
     plt.title("L1 Regularization with SAGA Solver")
-    plt.savefig("l1.png")
+    plt.savefig(str(outfilepath))
 
 
 class OneVsRest:
@@ -698,7 +706,7 @@ def main(use_ccle: bool = True) -> None:
     )
     l1_sweeps[-1].print_accuracies()
 
-    plot_l1_sweep(l1_sweeps)
+    plot_l1_sweep(l1_sweeps, basic_results, outdirpath / "l1_sweep.png")
 
     logging.info("Running OVR Sweep...")
     X_train, X_valid, X_test, y_train, y_valid, y_test = train_valid_test_split(
