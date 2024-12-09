@@ -411,17 +411,17 @@ def plot_l1_sweep(
     combined_data = {}
     for result in results:
         for C, contents in result.data.items():
-            combined_data[C] = contents
+            combined_data[float(C)] = contents
 
     accuracies = {
         dataset: {
-            float(C): _get_accuracy_from_cm(results[0][dataset])
+            C: _get_accuracy_from_cm(results[0][dataset])
             for C, results in sorted(combined_data.items())
         }
         for dataset in ["train", "valid", "test"]
     }
     feature_counts = {
-        float(C): _get_feature_count_from_coefs(results[1])
+        C: _get_feature_count_from_coefs(results[1])
         for C, results in sorted(combined_data.items())
     }
 
@@ -438,7 +438,7 @@ def plot_l1_sweep(
     )
     y_value = _get_accuracy_from_cm(basic_results.data["logistic_saga"]["valid"])
     plt.semilogx(
-        [min(accuracies.keys()), max(accuracies.keys())],
+        [min(accuracies["valid"].keys()), max(accuracies["valid"].keys())],
         [y_value, y_value],
         ":",
         label="Validation Accuracy (no reg.)",
@@ -597,7 +597,7 @@ def train_valid_test_split(
 
 
 def main(use_ccle: bool = True) -> None:
-    # pylint:disable=too-many-locals,too-many-statements
+    # pylint:disable=too-many-locals
     """CLI Entry Point"""
 
     if use_ccle:
@@ -692,33 +692,17 @@ def main(use_ccle: bool = True) -> None:
     l1_sweeps[-1].print_accuracies()
     l1_sweeps.append(
         L1Sweep.load_or_run(
-            outdirpath / "l1_sweep_1.json",
+            outdirpath / "l1_sweep_zoom.json",
             X_train,
             X_valid,
             X_test,
             y_train,
             y_valid,
             y_test,
-            -1.0,
+            -2.0,
             1.0,
-            7,
+            13,
             True,
-        )
-    )
-    l1_sweeps[-1].print_accuracies()
-    l1_sweeps.append(
-        L1Sweep.load_or_run(
-            outdirpath / "l1_sweep_2.json",
-            X_train,
-            X_valid,
-            X_test,
-            y_train,
-            y_valid,
-            y_test,
-            1.0,
-            2.5,
-            16,
-            False,
         )
     )
     l1_sweeps[-1].print_accuracies()
