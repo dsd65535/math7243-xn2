@@ -27,6 +27,12 @@ def _get_accuracy_from_cm(cm: np.ndarray) -> float:
     return cm.diagonal().sum() / cm.sum()
 
 
+def _get_feature_count_from_coefs(coefs: np.ndarray) -> int:
+    """Get the non-zero feature count from coefficients"""
+
+    return len(set(idx for row in coefs for idx, point in enumerate(row) if point))
+
+
 class BasicResults:
     """Basic Classifications"""
 
@@ -226,7 +232,7 @@ def plot_pca(
 class L1Sweep:
     """Sweep of L1 Regularization"""
 
-    def __init__(self, data: dict[str, tuple[dict[str, np.ndarray], np.ndarray]]):
+    def __init__(self, data: dict[float, tuple[dict[str, np.ndarray], np.ndarray]]):
         self.data = data
 
     @classmethod
@@ -344,6 +350,54 @@ class L1Sweep:
             ).dump(infilepath)
 
         return cls.load(infilepath)
+
+
+def plot_l1_sweep(results: list[L1Sweep]) -> None:
+    """Plot the results of the L1 Sweeps"""
+
+    combined_data = {}
+    for result in results:
+        for C, contents in result.data.items():
+            combined_data[C] = contents
+
+    accuracies = {
+        dataset: {
+            float(C): _get_accuracy_from_cm(results[0][dataset])
+            for C, results in sorted(combined_data.items())
+        }
+        for dataset in ["train", "valid", "test"]
+    }
+    feature_counts = {
+        float(C): _get_feature_count_from_coefs(results[1])
+        for C, results in sorted(combined_data.items())
+    }
+
+    _, ax1 = plt.subplots(figsize=(10.0, 10.0))
+
+    plt.plot(
+        *zip(*accuracies["train"].items()), "--", label="Training Accuracy", color="C0"
+    )
+    plt.plot(
+        *zip(*accuracies["test"].items()), "-", label="Testing Accuracy", color="C0"
+    )
+    plt.plot(
+        [1, 2**10],
+        [0.6325581395348837, 0.6325581395348837],
+        "-.",
+        label="Testing Accuracy (no reg.)",
+        color="C0",
+    )
+    ax1.set_xlabel("C")
+    ax1.set_ylabel("Accuracy")
+    ax1.set_xscale("log")
+
+    ax2 = ax1.twinx()
+    plt.plot(*zip(*feature_counts.items()), "-", label="Feature Count", color="C1")
+    ax2.set_ylabel("Feature Count")
+    ax1.legend()
+    ax2.legend()
+    plt.title("L1 Regularization with SAGA Solver")
+    plt.savefig("l1.png")
 
 
 class OneVsRest:
@@ -486,7 +540,7 @@ def train_valid_test_split(
 
 
 def main(use_ccle: bool = True) -> None:
-    # pylint:disable=too-many-locals
+    # pylint:disable=too-many-locals,too-many-statements
     """CLI Entry Point"""
 
     if use_ccle:
@@ -561,48 +615,57 @@ def main(use_ccle: bool = True) -> None:
     X_train, X_valid, X_test, y_train, y_valid, y_test = train_valid_test_split(
         X_data, y_data, 0.2, 0.2, seed
     )
-    l1_sweep = L1Sweep.load_or_run(
-        outdirpath / "l1_sweep.json",
-        X_train,
-        X_valid,
-        X_test,
-        y_train,
-        y_valid,
-        y_test,
-        -3.0,
-        3.0,
-        7,
-        True,
+    l1_sweeps = []
+    l1_sweeps.append(
+        L1Sweep.load_or_run(
+            outdirpath / "l1_sweep.json",
+            X_train,
+            X_valid,
+            X_test,
+            y_train,
+            y_valid,
+            y_test,
+            -3.0,
+            3.0,
+            7,
+            True,
+        )
     )
-    l1_sweep.print_accuracies()
-    l1_sweep = L1Sweep.load_or_run(
-        outdirpath / "l1_sweep_1.json",
-        X_train,
-        X_valid,
-        X_test,
-        y_train,
-        y_valid,
-        y_test,
-        -1.0,
-        1.0,
-        7,
-        True,
+    l1_sweeps[-1].print_accuracies()
+    l1_sweeps.append(
+        L1Sweep.load_or_run(
+            outdirpath / "l1_sweep_1.json",
+            X_train,
+            X_valid,
+            X_test,
+            y_train,
+            y_valid,
+            y_test,
+            -1.0,
+            1.0,
+            7,
+            True,
+        )
     )
-    l1_sweep.print_accuracies()
-    l1_sweep = L1Sweep.load_or_run(
-        outdirpath / "l1_sweep_2.json",
-        X_train,
-        X_valid,
-        X_test,
-        y_train,
-        y_valid,
-        y_test,
-        1.0,
-        2.5,
-        16,
-        False,
+    l1_sweeps[-1].print_accuracies()
+    l1_sweeps.append(
+        L1Sweep.load_or_run(
+            outdirpath / "l1_sweep_2.json",
+            X_train,
+            X_valid,
+            X_test,
+            y_train,
+            y_valid,
+            y_test,
+            1.0,
+            2.5,
+            16,
+            False,
+        )
     )
-    l1_sweep.print_accuracies()
+    l1_sweeps[-1].print_accuracies()
+
+    plot_l1_sweep(l1_sweeps)
 
     logging.info("Running OVR Sweep...")
     X_train, X_valid, X_test, y_train, y_valid, y_test = train_valid_test_split(
