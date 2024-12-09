@@ -21,6 +21,12 @@ from sklearn.svm import SVC
 from math7243_xn2.basic import get_data
 
 
+def _get_accuracy_from_cm(cm: np.ndarray) -> float:
+    """Get the accuracy from a confusion matrix"""
+
+    return cm.diagonal().sum() / cm.sum()
+
+
 class BasicResults:
     """Basic Classifications"""
 
@@ -132,7 +138,7 @@ class BasicResults:
 
         for model, model_results in self.data.items():
             for dataset, result in model_results.items():
-                accuracy = result.diagonal().sum() / result.sum()
+                accuracy = _get_accuracy_from_cm(result)
                 print(f"{model},{dataset},{accuracy}")
 
     def dump_cms(self, outdirpath: Path, labels: list[str]) -> None:
@@ -167,6 +173,54 @@ class BasicResults:
             cls.run(X_train, X_valid, X_test, y_train, y_valid, y_test).dump(infilepath)
 
         return cls.load(infilepath)
+
+
+def plot_pca(
+    pca_results: dict[int, BasicResults],
+    basic_results: BasicResults,
+    outfilepath_log: Path,
+    outfilepath_gauss: Path,
+    outfilepath_svc: Path,
+) -> None:
+    """Plot results from PCA Sweep"""
+
+    xaxis = sorted(pca_results.keys())
+    all_models = list(pca_results[xaxis[0]].data.keys())
+
+    for outfilepath, models in zip(
+        [outfilepath_log, outfilepath_gauss, outfilepath_svc],
+        [all_models[:3], all_models[3:5], all_models[5:]],
+    ):
+        plt.figure(figsize=(10, 10))
+        for idx, model in enumerate(models):
+            for dataset, fmt in [("train", "--"), ("valid", "-"), ("test", "-.")]:
+                plt.semilogx(
+                    xaxis,
+                    [
+                        _get_accuracy_from_cm(
+                            pca_results[n_components].data[model][dataset]
+                        )
+                        for n_components in xaxis
+                    ],
+                    fmt,
+                    label=f"{model} ({dataset})",
+                    color=f"C{idx}",
+                )
+            dataset = "valid"
+            fmt = ":"
+            y_value = _get_accuracy_from_cm(basic_results.data[model][dataset])
+            plt.semilogx(
+                [min(xaxis), max(xaxis)],
+                [y_value, y_value],
+                fmt,
+                label=f"{model} ({dataset}, no PCA)",
+                color=f"C{idx}",
+            )
+        plt.legend()
+        plt.title("PCA Effect on Accuracy")
+        plt.ylabel("Accuracy")
+        plt.xlabel("Number of Components")
+        plt.savefig(str(outfilepath))
 
 
 class L1Sweep:
@@ -254,7 +308,7 @@ class L1Sweep:
 
         for model, (model_results, _) in self.data.items():
             for dataset, result in model_results.items():
-                accuracy = result.diagonal().sum() / result.sum()
+                accuracy = _get_accuracy_from_cm(result)
                 print(f"{model},{dataset},{accuracy}")
 
     @classmethod
@@ -357,7 +411,7 @@ class OneVsRest:
 
         for label, results in zip(labels, self.data):
             for dataset, result in results.items():
-                accuracy = result.diagonal().sum() / result.sum()
+                accuracy = _get_accuracy_from_cm(result)
                 print(f"{label},{dataset},{accuracy}")
 
     def dump_cms(self, outdirpath: Path, labels: list[str], dataset: str) -> None:
@@ -431,7 +485,7 @@ def train_valid_test_split(
     return X_train, X_valid, X_test, y_train, y_valid, y_test
 
 
-def main(use_ccle: bool = False) -> None:
+def main(use_ccle: bool = True) -> None:
     # pylint:disable=too-many-locals
     """CLI Entry Point"""
 
@@ -467,7 +521,9 @@ def main(use_ccle: bool = False) -> None:
     basic_results.print_accuracies()
     basic_results.dump_cms(outdirpath, labels)
 
-    for n_components in np.logspace(0.0, 11.0, 12, base=2.0).astype(int):
+    pca_results = {}
+    for n_components in np.logspace(0.0, 10.0, 11, base=2.0).astype(int):
+        logging.info(f"Running {n_components}-PCA...")
         pca = PCA(n_components=n_components)
         try:
             pca.fit(X_data)
@@ -476,12 +532,11 @@ def main(use_ccle: bool = False) -> None:
             continue
         X_data_pca = pca.transform(X_data)
 
-        logging.info(f"Running {n_components}-PCA...")
         X_train, X_valid, X_test, y_train, y_valid, y_test = train_valid_test_split(
             X_data_pca, y_data, 0.2, 0.2, seed
         )
         try:
-            basic_results = BasicResults.load_or_run(
+            pca_results[n_components] = BasicResults.load_or_run(
                 outdirpath / f"{n_components}_pca.json",
                 X_train,
                 X_valid,
@@ -493,7 +548,14 @@ def main(use_ccle: bool = False) -> None:
         except Exception:  # pylint:disable=broad-exception-caught
             logging.exception("Failed a PCA run")
             continue
-        basic_results.print_accuracies()
+        pca_results[n_components].print_accuracies()
+    plot_pca(
+        pca_results,
+        basic_results,
+        outdirpath / "pca_log.png",
+        outdirpath / "pca_gauss.png",
+        outdirpath / "pca_svc.png",
+    )
 
     logging.info("Running L1 Sweeps...")
     X_train, X_valid, X_test, y_train, y_valid, y_test = train_valid_test_split(
