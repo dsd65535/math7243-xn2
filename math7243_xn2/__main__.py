@@ -262,6 +262,22 @@ def plot_pca(
         plt.savefig(str(outfilepath))
 
 
+def print_best_pca(pca_results: dict[int, BasicResults]) -> None:
+    """Print the best results from PCA Sweep"""
+
+    for model in list(pca_results.values())[0].data.keys():
+        for dataset in ["train", "valid", "test"]:
+            results = [
+                (
+                    n_components,
+                    _get_accuracy_from_cm(basic_results.data[model][dataset]),
+                )
+                for n_components, basic_results in pca_results.items()
+            ]
+            best = sorted(results, key=lambda x: x[1])[-1]
+            print(f"{model},{dataset},{best[0]},{best[1]}")
+
+
 class L1Sweep:
     """Sweep of L1 Regularization"""
 
@@ -651,6 +667,7 @@ def main(use_ccle: bool = True) -> None:
         outdirpath / "pca_gauss.png",
         outdirpath / "pca_svc.png",
     )
+    print_best_pca(pca_results)
 
     logging.info("Running L1 Sweeps...")
     X_train, X_valid, X_test, y_train, y_valid, y_test = train_valid_test_split(
