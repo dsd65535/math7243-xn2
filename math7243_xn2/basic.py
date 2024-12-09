@@ -7,7 +7,7 @@ import pandas as pd
 
 
 def get_data(
-    ccle: bool = False, cachedirpath: Path = Path("cache")
+    use_ccle: bool = True, cachedirpath: Path = Path("cache")
 ) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
     """Get X and y data"""
 
@@ -15,7 +15,7 @@ def get_data(
     to_remove = ["Unknown", "Teratoma", "Adrenal Cancer", "Embryonal Cancer"]
     sample_info_csv_filepath = Path("22Q2/sample_info.csv")
     sample_info_on = "DepMap_ID"
-    if ccle:
+    if use_ccle:
         df_csv_filepath = "22Q2/CCLE_expression.csv"
         df_on = "Unnamed: 0"
     else:

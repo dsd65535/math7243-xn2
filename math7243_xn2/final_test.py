@@ -31,17 +31,21 @@ class BasicResults:
     def run(
         cls,
         X_train: np.ndarray,
+        X_valid: np.ndarray,
         X_test: np.ndarray,
         y_train: np.ndarray,
+        y_valid: np.ndarray,
         y_test: np.ndarray,
     ) -> "BasicResults":
+        # pylint:disable=too-many-arguments,too-many-positional-arguments
         """Run Tests"""
 
         one_hot_encoder = OneHotEncoder(
             sparse_output=False,
-            categories=[np.unique(np.concatenate([y_train, y_test]))],
+            categories=[np.unique(np.concatenate([y_train, y_valid, y_test]))],
         )
         y_train_dummy = one_hot_encoder.fit_transform(y_train.reshape(-1, 1))
+        y_valid_dummy = one_hot_encoder.fit_transform(y_valid.reshape(-1, 1))
         y_test_dummy = one_hot_encoder.fit_transform(y_test.reshape(-1, 1))
 
         data = {}
@@ -50,6 +54,7 @@ class BasicResults:
         model = LinearRegression()
         model.fit(X_train, y_train_dummy)
         print(f"R2 Training Score: {model.score(X_train, y_train_dummy):.3f}")
+        print(f"R2 Testing Score: {model.score(X_valid, y_valid_dummy):.3f}")
         print(f"R2 Testing Score: {model.score(X_test, y_test_dummy):.3f}")
 
         for solver in ["lbfgs", "liblinear", "saga"]:
@@ -58,6 +63,7 @@ class BasicResults:
             model.fit(X_train, y_train)
             data[f"logistic_{solver}"] = {
                 "train": confusion_matrix(y_train, model.predict(X_train)),
+                "valid": confusion_matrix(y_valid, model.predict(X_valid)),
                 "test": confusion_matrix(y_test, model.predict(X_test)),
             }
 
@@ -66,6 +72,7 @@ class BasicResults:
         model.fit(X_train, y_train)
         data["lda"] = {
             "train": confusion_matrix(y_train, model.predict(X_train)),
+            "valid": confusion_matrix(y_valid, model.predict(X_valid)),
             "test": confusion_matrix(y_test, model.predict(X_test)),
         }
 
@@ -74,6 +81,7 @@ class BasicResults:
         model.fit(X_train, y_train)
         data["qda"] = {
             "train": confusion_matrix(y_train, model.predict(X_train)),
+            "valid": confusion_matrix(y_valid, model.predict(X_valid)),
             "test": confusion_matrix(y_test, model.predict(X_test)),
         }
 
@@ -83,6 +91,7 @@ class BasicResults:
             model.fit(X_train, y_train)
             data[f"svc_{kernel}"] = {
                 "train": confusion_matrix(y_train, model.predict(X_train)),
+                "valid": confusion_matrix(y_valid, model.predict(X_valid)),
                 "test": confusion_matrix(y_test, model.predict(X_test)),
             }
 
@@ -94,11 +103,11 @@ class BasicResults:
         with outfilepath.open("w", encoding="UTF-8") as outfile:
             json.dump(
                 {
-                    test: {
+                    model: {
                         dataset: result.tolist()
-                        for dataset, result in test_results.items()
+                        for dataset, result in model_results.items()
                     }
-                    for test, test_results in self.data.items()
+                    for model, model_results in self.data.items()
                 },
                 outfile,
             )
@@ -109,11 +118,11 @@ class BasicResults:
 
         with infilepath.open("r", encoding="UTF-8") as infile:
             data = {
-                test: {
+                model: {
                     dataset: np.array(result)
-                    for dataset, result in test_results.items()
+                    for dataset, result in model_results.items()
                 }
-                for test, test_results in json.load(infile).items()
+                for model, model_results in json.load(infile).items()
             }
 
         return cls(data)
@@ -121,16 +130,16 @@ class BasicResults:
     def print_accuracies(self) -> None:
         """Print Accuracies from Confusion Matrices"""
 
-        for test, test_results in self.data.items():
-            for dataset, result in test_results.items():
+        for model, model_results in self.data.items():
+            for dataset, result in model_results.items():
                 accuracy = result.diagonal().sum() / result.sum()
-                print(f"{test},{dataset},{accuracy}")
+                print(f"{model},{dataset},{accuracy}")
 
     def dump_cms(self, outdirpath: Path, labels: list[str]) -> None:
         """Dump PNGs of the confusion matrices"""
 
-        for test, test_results in self.data.items():
-            for dataset, result in test_results.items():
+        for model, model_results in self.data.items():
+            for dataset, result in model_results.items():
                 disp = ConfusionMatrixDisplay(
                     confusion_matrix=result, display_labels=labels
                 )
@@ -138,22 +147,24 @@ class BasicResults:
                 disp.plot(ax=ax, colorbar=False)
                 plt.xticks(rotation=90.0)
                 plt.tight_layout()
-                plt.savefig(str(outdirpath / f"{test}_{dataset}.png"))
+                plt.savefig(str(outdirpath / f"{model}_{dataset}.png"))
 
     @classmethod
     def load_or_run(
         cls,
         infilepath: Path,
         X_train: np.ndarray,
+        X_valid: np.ndarray,
         X_test: np.ndarray,
         y_train: np.ndarray,
+        y_valid: np.ndarray,
         y_test: np.ndarray,
     ) -> "BasicResults":
         # pylint:disable=too-many-arguments,too-many-positional-arguments
         """Load from file if it exists, otherwise run"""
 
         if not infilepath.exists():
-            cls.run(X_train, X_test, y_train, y_test).dump(infilepath)
+            cls.run(X_train, X_valid, X_test, y_train, y_valid, y_test).dump(infilepath)
 
         return cls.load(infilepath)
 
@@ -168,8 +179,10 @@ class L1Sweep:
     def run(
         cls,
         X_train: np.ndarray,
+        X_valid: np.ndarray,
         X_test: np.ndarray,
         y_train: np.ndarray,
+        y_valid: np.ndarray,
         y_test: np.ndarray,
         min_C: float,
         max_C: float,
@@ -192,6 +205,7 @@ class L1Sweep:
             data[C] = (
                 {
                     "train": confusion_matrix(y_train, model.predict(X_train)),
+                    "valid": confusion_matrix(y_valid, model.predict(X_valid)),
                     "test": confusion_matrix(y_test, model.predict(X_test)),
                 },
                 model.coef_,
@@ -205,14 +219,14 @@ class L1Sweep:
         with outfilepath.open("w", encoding="UTF-8") as outfile:
             json.dump(
                 {
-                    test: (
+                    model: (
                         {
                             dataset: result.tolist()
-                            for dataset, result in test_results.items()
+                            for dataset, result in model_results.items()
                         },
                         coefs.tolist(),
                     )
-                    for test, (test_results, coefs) in self.data.items()
+                    for model, (model_results, coefs) in self.data.items()
                 },
                 outfile,
             )
@@ -223,14 +237,14 @@ class L1Sweep:
 
         with infilepath.open("r", encoding="UTF-8") as infile:
             data = {
-                test: (
+                model: (
                     {
                         dataset: np.array(result)
-                        for dataset, result in test_results.items()
+                        for dataset, result in model_results.items()
                     },
                     np.array(coefs),
                 )
-                for test, (test_results, coefs) in json.load(infile).items()
+                for model, (model_results, coefs) in json.load(infile).items()
             }
 
         return cls(data)
@@ -238,18 +252,20 @@ class L1Sweep:
     def print_accuracies(self) -> None:
         """Print Accuracies from Confusion Matrices"""
 
-        for test, (test_results, _) in self.data.items():
-            for dataset, result in test_results.items():
+        for model, (model_results, _) in self.data.items():
+            for dataset, result in model_results.items():
                 accuracy = result.diagonal().sum() / result.sum()
-                print(f"{test},{dataset},{accuracy}")
+                print(f"{model},{dataset},{accuracy}")
 
     @classmethod
     def load_or_run(
         cls,
         infilepath: Path,
         X_train: np.ndarray,
+        X_valid: np.ndarray,
         X_test: np.ndarray,
         y_train: np.ndarray,
+        y_valid: np.ndarray,
         y_test: np.ndarray,
         min_C: float,
         max_C: float,
@@ -261,7 +277,16 @@ class L1Sweep:
 
         if not infilepath.exists():
             cls.run(
-                X_train, X_test, y_train, y_test, min_C, max_C, count_C, log_C
+                X_train,
+                X_valid,
+                X_test,
+                y_train,
+                y_valid,
+                y_test,
+                min_C,
+                max_C,
+                count_C,
+                log_C,
             ).dump(infilepath)
 
         return cls.load(infilepath)
@@ -277,8 +302,10 @@ class OneVsRest:
     def run(
         cls,
         X_train: np.ndarray,
+        X_valid: np.ndarray,
         X_test: np.ndarray,
         y_train: np.ndarray,
+        y_valid: np.ndarray,
         y_test: np.ndarray,
         labels: list[str],
     ) -> "OneVsRest":
@@ -294,6 +321,7 @@ class OneVsRest:
             data.append(
                 {
                     "train": confusion_matrix(y_train == idx, model.predict(X_train)),
+                    "valid": confusion_matrix(y_valid == idx, model.predict(X_valid)),
                     "test": confusion_matrix(y_test == idx, model.predict(X_test)),
                 }
             )
@@ -306,11 +334,8 @@ class OneVsRest:
         with outfilepath.open("w", encoding="UTF-8") as outfile:
             json.dump(
                 [
-                    {
-                        dataset: result.tolist()
-                        for dataset, result in test_results.items()
-                    }
-                    for test_results in self.data
+                    {dataset: result.tolist() for dataset, result in results.items()}
+                    for results in self.data
                 ],
                 outfile,
             )
@@ -321,8 +346,8 @@ class OneVsRest:
 
         with infilepath.open("r", encoding="UTF-8") as infile:
             data = [
-                {dataset: np.array(result) for dataset, result in test_results.items()}
-                for test_results in json.load(infile)
+                {dataset: np.array(result) for dataset, result in results.items()}
+                for results in json.load(infile)
             ]
 
         return cls(data)
@@ -330,8 +355,8 @@ class OneVsRest:
     def print_accuracies(self, labels: list[str]) -> None:
         """Print Accuracies from Confusion Matrices"""
 
-        for label, test_results in zip(labels, self.data):
-            for dataset, result in test_results.items():
+        for label, results in zip(labels, self.data):
+            for dataset, result in results.items():
                 accuracy = result.diagonal().sum() / result.sum()
                 print(f"{label},{dataset},{accuracy}")
 
@@ -341,8 +366,8 @@ class OneVsRest:
         rows = round(len(labels) ** 0.5)
         cols = (len(labels) - 1) // rows + 1
         _, axes = plt.subplots(rows, cols, figsize=(2.0 * cols, 2.0 * rows))
-        for label, test_results, ax in zip(labels, self.data, axes.flatten()):
-            result = test_results[dataset]
+        for label, results, ax in zip(labels, self.data, axes.flatten()):
+            result = results[dataset]
             ax.set_title(label, fontsize=10)
             try:
                 disp = ConfusionMatrixDisplay(
@@ -366,8 +391,10 @@ class OneVsRest:
         cls,
         infilepath: Path,
         X_train: np.ndarray,
+        X_valid: np.ndarray,
         X_test: np.ndarray,
         y_train: np.ndarray,
+        y_valid: np.ndarray,
         y_test: np.ndarray,
         labels: list[str],
     ) -> "OneVsRest":
@@ -375,28 +402,67 @@ class OneVsRest:
         """Load from file if it exists, otherwise run"""
 
         if not infilepath.exists():
-            cls.run(X_train, X_test, y_train, y_test, labels).dump(infilepath)
+            cls.run(X_train, X_valid, X_test, y_train, y_valid, y_test, labels).dump(
+                infilepath
+            )
 
         return cls.load(infilepath)
 
 
-def main(outdirpath: Path = Path("results"), seed: int = 43) -> None:
+def train_valid_test_split(
+    X_data: np.ndarray,
+    y_data: np.ndarray,
+    test_size: float,
+    valid_size: float,
+    random_state: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Split data into training, validation and testing"""
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_data, y_data, test_size=test_size, random_state=random_state
+    )
+    X_train, X_valid, y_train, y_valid = train_test_split(
+        X_train,
+        y_train,
+        test_size=valid_size / (1 - test_size),
+        random_state=random_state,
+    )
+
+    return X_train, X_valid, X_test, y_train, y_valid, y_test
+
+
+def main(use_ccle: bool = False) -> None:
+    # pylint:disable=too-many-locals
     """CLI Entry Point"""
+
+    if use_ccle:
+        outdirpath = Path("results_ccle")
+        seed = 45
+    else:
+        outdirpath = Path("results_crispr")
+        seed = 40
 
     logging.basicConfig(level=logging.INFO)
     random.seed(seed)
     np.random.seed(seed)
 
-    X_data, y_data, labels, _ = get_data()
+    X_data, y_data, labels, _ = get_data(use_ccle)
 
     outdirpath.mkdir(parents=True, exist_ok=True)
 
     logging.info("Running No PCA...")
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_data, y_data, test_size=0.2, random_state=seed
+    X_train, X_valid, X_test, y_train, y_valid, y_test = train_valid_test_split(
+        X_data, y_data, 0.2, 0.2, seed
     )
+
     basic_results = BasicResults.load_or_run(
-        outdirpath / "basic_results.json", X_train, X_test, y_train, y_test
+        outdirpath / "basic_results.json",
+        X_train,
+        X_valid,
+        X_test,
+        y_train,
+        y_valid,
+        y_test,
     )
     basic_results.print_accuracies()
     basic_results.dump_cms(outdirpath, labels)
@@ -411,15 +477,17 @@ def main(outdirpath: Path = Path("results"), seed: int = 43) -> None:
         X_data_pca = pca.transform(X_data)
 
         logging.info(f"Running {n_components}-PCA...")
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_data_pca, y_data, test_size=0.2, random_state=41
+        X_train, X_valid, X_test, y_train, y_valid, y_test = train_valid_test_split(
+            X_data_pca, y_data, 0.2, 0.2, seed
         )
         try:
             basic_results = BasicResults.load_or_run(
                 outdirpath / f"{n_components}_pca.json",
                 X_train,
+                X_valid,
                 X_test,
                 y_train,
+                y_valid,
                 y_test,
             )
         except Exception:  # pylint:disable=broad-exception-caught
@@ -428,14 +496,16 @@ def main(outdirpath: Path = Path("results"), seed: int = 43) -> None:
         basic_results.print_accuracies()
 
     logging.info("Running L1 Sweeps...")
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_data, y_data, test_size=0.2, random_state=41
+    X_train, X_valid, X_test, y_train, y_valid, y_test = train_valid_test_split(
+        X_data, y_data, 0.2, 0.2, seed
     )
     l1_sweep = L1Sweep.load_or_run(
         outdirpath / "l1_sweep.json",
         X_train,
+        X_valid,
         X_test,
         y_train,
+        y_valid,
         y_test,
         -3.0,
         3.0,
@@ -446,8 +516,10 @@ def main(outdirpath: Path = Path("results"), seed: int = 43) -> None:
     l1_sweep = L1Sweep.load_or_run(
         outdirpath / "l1_sweep_1.json",
         X_train,
+        X_valid,
         X_test,
         y_train,
+        y_valid,
         y_test,
         -1.0,
         1.0,
@@ -458,8 +530,10 @@ def main(outdirpath: Path = Path("results"), seed: int = 43) -> None:
     l1_sweep = L1Sweep.load_or_run(
         outdirpath / "l1_sweep_2.json",
         X_train,
+        X_valid,
         X_test,
         y_train,
+        y_valid,
         y_test,
         1.0,
         2.5,
@@ -469,14 +543,22 @@ def main(outdirpath: Path = Path("results"), seed: int = 43) -> None:
     l1_sweep.print_accuracies()
 
     logging.info("Running OVR Sweep...")
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_data, y_data, test_size=0.2, random_state=seed
+    X_train, X_valid, X_test, y_train, y_valid, y_test = train_valid_test_split(
+        X_data, y_data, 0.2, 0.2, seed
     )
     ovr_results = OneVsRest.load_or_run(
-        outdirpath / "one_versus_rest.json", X_train, X_test, y_train, y_test, labels
+        outdirpath / "one_versus_rest.json",
+        X_train,
+        X_valid,
+        X_test,
+        y_train,
+        y_valid,
+        y_test,
+        labels,
     )
     ovr_results.print_accuracies(labels)
     ovr_results.dump_cms(outdirpath, labels, "train")
+    ovr_results.dump_cms(outdirpath, labels, "valid")
     ovr_results.dump_cms(outdirpath, labels, "test")
 
 
