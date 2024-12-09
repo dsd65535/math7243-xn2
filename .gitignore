@@ -162,4 +162,5 @@ cython_debug/
 #.idea/
 
 cache
-results
+results_crispr
+results_ccle
